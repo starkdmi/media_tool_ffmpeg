@@ -4,3 +4,4 @@ linter:
   rules:
     lines_longer_than_80_chars: false
     avoid_equals_and_hash_code_on_mutable_classes: false
+    omit_local_variable_types: false
