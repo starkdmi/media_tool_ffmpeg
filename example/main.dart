@@ -1,9 +1,9 @@
 import 'dart:ui';
-import 'package:media_tool_ffmpeg/media_tool_ffmpeg.dart';
+import 'package:media_tool_ffmpeg/media_tool_ffmpeg.dart' as ffmpeg;
 import 'package:media_tool_platform_interface/media_tool_platform_interface.dart';
 
 void main() {
-  final mediaTool = MediaToolFFmpeg();
+  final mediaTool = ffmpeg.MediaToolFFmpeg();
 
   // Compress video file
   final events = mediaTool.startVideoCompression(
