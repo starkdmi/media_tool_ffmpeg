@@ -1,5 +1,5 @@
 name: media_tool_ffmpeg
-description: FFmpeg based implementation of media_tool for iOS, macOS and Android
+description: FFmpeg based implementation of media_tool_flutter for iOS, macOS and Android
 homepage: https://github.com/starkdmi/media_tool_flutter
 repository: https://github.com/starkdmi/media_tool_ffmpeg
 version: 0.1.0
@@ -10,7 +10,7 @@ environment:
 
 flutter:
   plugin:
-    implements: media_tool
+    implements: media_tool_flutter
     platforms:
       android:
         dartPluginClass: MediaToolFFmpeg
