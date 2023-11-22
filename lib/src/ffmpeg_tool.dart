@@ -9,14 +9,19 @@ import 'package:media_tool_platform_interface/media_tool_platform_interface.dart
 
 /// Audio codec type reference
 typedef AudioCodec = types.AudioCodec;
+
 /// Video codec type reference
 typedef VideoCodec = types.VideoCodec;
+
 /// Metadata fields type reference
 typedef MetadataField = types.MetadataField;
+
 /// Video metadata type reference
 typedef VideoMetadata = types.VideoMetadata;
+
 /// Image metadata type reference
 typedef ImageMetadata = types.ImageMetadata;
+
 /// Audio metadata type reference
 typedef AudioMetadata = types.AudioMetadata;
 
@@ -63,51 +68,66 @@ class FFmpegTool {
 
     // check destination file existence when overwrite flag is set to `false`
     if (File(destination).existsSync() && !overwrite) {
-      yield const CompressionFailedEvent(error: 'Destination file already exists, use overwrite flag to force.');
+      yield const CompressionFailedEvent(
+          error:
+              'Destination file already exists, use overwrite flag to force.');
       return;
     }
 
     // build command
-    command = '${_base(overwrite: overwrite)} $prefix -i "$path" $command "$destination"';
+    command =
+        '${_base(overwrite: overwrite)} $prefix -i "$path" $command "$destination"';
 
     // run command with callbacks specified
-    final session = await FFmpegKit.executeAsync(command, (session) async {
-      final returnCode = await session.getReturnCode();
+    final session = await FFmpegKit.executeAsync(
+      command,
+      (session) async {
+        final returnCode = await session.getReturnCode();
 
-      if (ReturnCode.isSuccess(returnCode)) { // on success
-        // insure 100% progress event pushed
-        if (!skipProgress && progress < 1.0) {
-          controller.add(const CompressionProgressEvent(progress: 1));
+        if (ReturnCode.isSuccess(returnCode)) {
+          // on success
+          // insure 100% progress event pushed
+          if (!skipProgress && progress < 1.0) {
+            controller.add(const CompressionProgressEvent(progress: 1));
+          }
+
+          // push completed event
+          controller.add(CompressionCompletedEvent(url: destination));
+          await controller.close();
+        } else if (ReturnCode.isCancel(returnCode)) {
+          // on cancelled
+          // push cancellation event
+          controller.add(const CompressionCancelledEvent());
+          await controller.close();
+        } else {
+          // on failure
+          // get error description
+          final description = await session.getOutput();
+          // push error event
+          controller
+              .add(CompressionFailedEvent(error: description ?? 'unknown'));
+          await controller.close();
         }
+      },
+      null,
+      skipProgress
+          ? null
+          : (stats) {
+              // on progress
+              // get current seek time
+              final time = stats.getTime(); // in milliseconds
+              // calculate the progress
+              final current = time / duration;
 
-        // push completed event
-        controller.add(CompressionCompletedEvent(url: destination));   
-        await controller.close();          
-      } else if (ReturnCode.isCancel(returnCode)) { // on cancelled
-        // push cancellation event
-        controller.add(const CompressionCancelledEvent());
-        await controller.close();
-      } else { // on failure
-        // get error description
-        final description = await session.getOutput();
-        // push error event
-        controller.add(CompressionFailedEvent(error: description ?? 'unknown'));
-        await controller.close();
-      }
-    }, null, skipProgress ? null : (stats) { // on progress
-      // get current seek time
-      final time = stats.getTime(); // in milliseconds
-      // calculate the progress
-      final current = time / duration;
-
-      // push only unique progress events
-      if (current != progress) {
-        // update the progress
-        progress = current; 
-        // push progress event
-        controller.add(CompressionProgressEvent(progress: progress));
-      }
-    },);
+              // push only unique progress events
+              if (current != progress) {
+                // update the progress
+                progress = current;
+                // push progress event
+                controller.add(CompressionProgressEvent(progress: progress));
+              }
+            },
+    );
 
     // push started event with session object for cancellation requests
     controller.add(CompressionStartedEvent(custom: session));
@@ -133,10 +153,11 @@ class FFmpegTool {
   }*/
 
   /// flags used by every ffmpeg command
-  static String _base({ bool overwrite = false }) => "-hide_banner -loglevel error ${overwrite ? "-y": ""}";
+  static String _base({bool overwrite = false}) =>
+      "-hide_banner -loglevel error ${overwrite ? "-y" : ""}";
 
   /// ffmpeg shortcut for settings optional lossless compression
-  static String _lossless(bool lossless) => "-lossless ${lossless ? "1": "0"}";
+  static String _lossless(bool lossless) => "-lossless ${lossless ? "1" : "0"}";
 
   /// ffmpeg shortcut for scaling down input image/video
   /// * if [size] is `null` no scalling applied
@@ -181,11 +202,11 @@ class FFmpegTool {
   /// * [overwrite] flag to overwrite existing file at destination
   /// * [deleteOrigin] flag to delete original file after successful compression
   /// * [skipMetadata] skip image file metadata, default to `false`
-  /// 
+  ///
   /// **Warning**: iOS HEIC is not supported
-  static Future<bool> convertImageFile({ 
-    required String path, 
-    required String destination, 
+  static Future<bool> convertImageFile({
+    required String path,
+    required String destination,
     ImageFormat? format,
     double? size,
     bool cropSquare = false,
@@ -204,7 +225,7 @@ class FFmpegTool {
     // Get image metadata
     final info = await _getMetadata(
       path: path,
-      fields: { MetadataField.isAnimated },
+      fields: {MetadataField.isAnimated},
     );
 
     var isAnimated = info[MetadataField.isAnimated] as bool;
@@ -237,7 +258,7 @@ class FFmpegTool {
     final String sizeFilter;
     if (size != null) {
       if (cropSquare) {
-        sizeFilter = '${_cropFilter(size)},${_scaleFilter(size)}'; 
+        sizeFilter = '${_cropFilter(size)},${_scaleFilter(size)}';
       } else {
         sizeFilter = _scaleFilter(size);
       }
@@ -257,9 +278,10 @@ class FFmpegTool {
     // Metadata, -1 to skip all
     final m = '-map_metadata ${skipMetadata ? '-1' : '0'}';
 
-    final session = await _execSync('${_base(overwrite: overwrite)} -i "$path" $m $c $l -quality $quality $filters "$destination"'); // -pix_fmt rgb24
+    final session = await _execSync(
+        '${_base(overwrite: overwrite)} -i "$path" $m $c $l -quality $quality $filters "$destination"'); // -pix_fmt rgb24
     final result = session != null;
-    
+
     // Delete origin
     if (result && deleteOrigin) {
       // Confirm the file at destination exists
@@ -279,7 +301,7 @@ class FFmpegTool {
   /// * set [lossless] to `true` for lossless compression
   /// * [fps] resulting animation frame rate
   /// * [overwrite] flag to overwrite existing file at destination
-  static Future<bool> convertGIFVideoFile({ 
+  static Future<bool> convertGIFVideoFile({
     required String path,
     required String destination,
     double? size,
@@ -293,7 +315,8 @@ class FFmpegTool {
     final framerate = _fpsFilter(fps);
     final filters = _filter([scale, framerate]);
     // yuva420p color format used for animation alpha channel - -pix_fmt yuva420p
-    final command = '${_base(overwrite: overwrite)} -i "$path" -map_metadata -1 $l -quality $quality $filters -loop 0 "$destination"';
+    final command =
+        '${_base(overwrite: overwrite)} -i "$path" -map_metadata -1 $l -quality $quality $filters -loop 0 "$destination"';
 
     final session = await _execSync(command);
     return session != null;
@@ -305,20 +328,21 @@ class FFmpegTool {
   /// * [size] widest side in pixels, if `null` original size returned
   /// * [position] time position in seconds, default to `1`
   /// * [overwrite] flag to overwrite existing file at destination
-  static Future<void> videoThumbnail({ 
-    required String path, 
-    required String destination, 
-    int? size, 
+  static Future<void> videoThumbnail({
+    required String path,
+    required String destination,
+    int? size,
     int position = 1,
     bool overwrite = false,
   }) async {
     // smallest side is size
-    // final scale = size == null ? "" : "-vf \"scale=w='if(lte(iw,ih),min($size,iw),-1)':h='if(lte(iw,ih),-1,min($size,ih))'\""; 
+    // final scale = size == null ? "" : "-vf \"scale=w='if(lte(iw,ih),min($size,iw),-1)':h='if(lte(iw,ih),-1,min($size,ih))'\"";
     // widest side is size
     final scale = _scaleFilter(size?.toDouble());
     final filter = _filter([scale]);
 
-    final command = '${_base(overwrite: overwrite)} -i "$path" -ss $position -frames:v 1 $filter "$destination"'; // -lossless 1 -pix_fmt rgb24
+    final command =
+        '${_base(overwrite: overwrite)} -i "$path" -ss $position -frames:v 1 $filter "$destination"'; // -lossless 1 -pix_fmt rgb24
     await _execSync(command);
   }
 
@@ -330,9 +354,9 @@ class FFmpegTool {
   /// * [framerate] is frame rate of ouput animated WebP image, default to `25`
   /// * [groupBy] set the frames batch size to analyze, default to `100`
   /// * [overwrite] flag to overwrite existing file at destination
-  static Future<bool> videoThumbnails({ 
-    required String path, 
-    required String destination, 
+  static Future<bool> videoThumbnails({
+    required String path,
+    required String destination,
     required int frames,
     double? size,
     int framerate = 25,
@@ -343,7 +367,7 @@ class FFmpegTool {
   }) async {
     final scale = _scaleFilter(size);
 
-    // Animations between frames - https://superuser.com/a/834035 
+    // Animations between frames - https://superuser.com/a/834035
     /*ffmpeg -y -i video.mp4 -filter_complex "\
       select='lt(mod(n\,30)\,7)',thumbnail=100,\
       fade=t=out:st=4:d=1,setpts=PTS-STARTPTS[v0];\
@@ -351,18 +375,19 @@ class FFmpegTool {
       [v0][v1]concat=n=2:v=1:a=0,format=yuv420p[v]" \
       -frames:v 7 -loop 0 -q 75 -framerate 0.6667 -map "[v]" preview.webp*/
 
-    // A. a single animated WebP without any transition effects 
-    // file size containig 5 unique frames is 34KB for 1280x720 and 30KB for 640x480 
+    // A. a single animated WebP without any transition effects
+    // file size containig 5 unique frames is 34KB for 1280x720 and 30KB for 640x480
     // `-vsync vfr` is required for skipping the same thumbnails
     // ffmpeg -y -i video.mp4 -vf "thumbnail=60" -vframes 5 -vsync vfr -c:v libwebp_anim -r 25 thumbnail.webp
     final filter = _filter([scale, 'thumbnail=$groupBy']);
-    final command = '${_base(overwrite: overwrite)} -i "$path" $filter -vframes $frames -vsync vfr -c:v libwebp_anim -r $framerate "$destination"';
+    final command =
+        '${_base(overwrite: overwrite)} -i "$path" $filter -vframes $frames -vsync vfr -c:v libwebp_anim -r $framerate "$destination"';
     final session = await _execSync(command);
 
     // $_base -i \"$path\" $filter -frames:v $frames -loop 0 -q 75-100 -framerate 0.6667 -c:v libwebp_anim \"$destination\"
 
     // B. Use 5 separate WebP images
-    // all files combined are 90KB for 1280x720 and 74KB for 640x480 
+    // all files combined are 90KB for 1280x720 and 74KB for 640x480
     // codec should be specified, instead single file will be generated
     // ffmpeg -y -i video.mp4 -vf "thumbnail=60" -frames:v 5 -vsync vfr -c:v libwebp thumb_%02d.webp
     // `-vsync vfr` is required for skipping the same thumbnails
@@ -392,9 +417,9 @@ class FFmpegTool {
   /// * [sampleRate] audio sample rate in Hz
   /// * [disableHardwareAcceleration] disable hardware acceleration, default to `false`
   /// * [includeAllTracks] include all tracks in output file, by default FFmpeg select only one stream per type (video, audio, subtitle)
-  static Stream<CompressionEvent> convertVideoFile({ 
-    required String path, 
-    required String destination, 
+  static Stream<CompressionEvent> convertVideoFile({
+    required String path,
+    required String destination,
     bool overwrite = false,
     bool deleteOrigin = false,
     VideoCodec? videoCodec,
@@ -426,7 +451,11 @@ class FFmpegTool {
     // Get video metadata
     final info = await _getMetadata(
       path: path,
-      fields: { MetadataField.duration, MetadataField.hasAlpha, MetadataField.isHDR },
+      fields: {
+        MetadataField.duration,
+        MetadataField.hasAlpha,
+        MetadataField.isHDR
+      },
     );
     final duration = info[MetadataField.duration] as double;
 
@@ -451,7 +480,7 @@ class FFmpegTool {
           if (videoCodec == VideoCodec.h264) {
             // fallback to libx264 for HDR support
             videoCodecName = 'libx264';
-  
+
             pixelFormat = 'yuv422p10le -profile:v high';
           } else if (videoCodec == VideoCodec.h265) {
             pixelFormat = 'p010le -profile:v main10';
@@ -470,7 +499,7 @@ class FFmpegTool {
         // av1 - no alpha supports using ffmpeg (libaom), maybe only via experimental `-strict experimental -vf "format=yuva420p"`
 
         // TODO: If source codec is VP9 -> add video decoder -c:v libvpx-vp9 to preserve alpha
-        
+
         if (videoCodec == VideoCodec.prores) {
           if (Platform.isIOS || Platform.isMacOS) {
             pixelFormat = 'bgra';
@@ -479,7 +508,8 @@ class FFmpegTool {
           }
         } else if (videoCodec == VideoCodec.h265) {
           if (Platform.isIOS || Platform.isMacOS) {
-            pixelFormat = 'bgra'; // TODO: FFmpeg will probably convert to `yuv420p`
+            pixelFormat =
+                'bgra'; // TODO: FFmpeg will probably convert to `yuv420p`
           } else {
             // Use default format in next block
           }
@@ -488,7 +518,7 @@ class FFmpegTool {
         } else {
           // Use default format in next block
         }
-      } 
+      }
 
       // Default format
       if (pixelFormat == null) {
@@ -501,14 +531,15 @@ class FFmpegTool {
         // vp9 - yuv420p yuv422p yuv440p yuv444p
         // libaom-av1 - yuv420p yuv422p yuv444p
 
-        if (!(Platform.isIOS || Platform.isMacOS) && videoCodec == VideoCodec.prores) {
+        if (!(Platform.isIOS || Platform.isMacOS) &&
+            videoCodec == VideoCodec.prores) {
           pixelFormat = 'yuv422p10le';
         } else {
           pixelFormat = 'yuv420p';
         }
       }
     }
-    final pixel = videoCodec == null ? '' : '-pix_fmt ${pixelFormat!}'; 
+    final pixel = videoCodec == null ? '' : '-pix_fmt ${pixelFormat!}';
 
     // Size and frame rate filter
     final scale = _scaleFilter(size);
@@ -529,7 +560,8 @@ class FFmpegTool {
     // Video codec (optional)
     final vcodec = videoCodec == null ? '' : '-c:v $videoCodecName';
     // Video command combined
-    final video = '$filter $vcodec $crf $bitrate $pixel $preset $movflag $hevcTag';
+    final video =
+        '$filter $vcodec $crf $bitrate $pixel $preset $movflag $hevcTag';
 
     // Audio
     final String audio;
@@ -575,11 +607,11 @@ class FFmpegTool {
   /// * [overwrite] flag to overwrite existing file at destination
   /// * [deleteOrigin] flag to delete original file after successful compression
   /// * [skipMetadata] skip audio file metadata, default to `false`
-  static Stream<CompressionEvent> convertAudioFile({ 
-    required String path, 
-    required String destination, 
+  static Stream<CompressionEvent> convertAudioFile({
+    required String path,
+    required String destination,
     AudioCodec? codec,
-    int? bitrate, 
+    int? bitrate,
     int? sampleRate,
     bool overwrite = false,
     bool deleteOrigin = false,
@@ -597,7 +629,7 @@ class FFmpegTool {
     // TODO: MP3-specific
     // -ac 2 - stereo
     // -f s16le - signed 16-bit little-endian PCM, standard format to streaming
-    // -profile:a aac_low - AAC-LC for streaming optimization (MP3 only) 
+    // -profile:a aac_low - AAC-LC for streaming optimization (MP3 only)
     // for streaming it's better to specify CBR using -b:a 128k instead of leaving possible VBR when bitrate is `null`
 
     // TODO: quality parameter via `-aq ...` (codec-specific)
@@ -608,7 +640,7 @@ class FFmpegTool {
     // Get audio duration for progress
     final info = await _getMetadata(
       path: path,
-      fields: { MetadataField.duration },
+      fields: {MetadataField.duration},
     );
     final duration = info[MetadataField.duration] as double;
 
@@ -632,14 +664,19 @@ class FFmpegTool {
 
   /// Extract audio metadata
   /// * [path] original audio
-  static Future<AudioMetadata> getAudioMetadata({ required String path }) async {
+  static Future<AudioMetadata> getAudioMetadata({required String path}) async {
     // load audio related metadata fields
-    final metadata = await _getMetadata(path: path, fields: {
-      MetadataField.duration, MetadataField.filesize, MetadataField.bitrate,
-    },);
+    final metadata = await _getMetadata(
+      path: path,
+      fields: {
+        MetadataField.duration,
+        MetadataField.filesize,
+        MetadataField.bitrate,
+      },
+    );
 
     return AudioMetadata(
-      duration: metadata[MetadataField.duration] as double, 
+      duration: metadata[MetadataField.duration] as double,
       filesize: metadata[MetadataField.filesize] as int,
       bitrate: metadata[MetadataField.bitrate] as int,
     );
@@ -647,14 +684,17 @@ class FFmpegTool {
 
   /// Extract image metadata
   /// * [path] original image
-  static Future<ImageMetadata> getImageMetadata({ required String path }) async {
+  static Future<ImageMetadata> getImageMetadata({required String path}) async {
     // load image related metadata fields
-    final metadata = await _getMetadata(path: path, fields: {
-      MetadataField.width,
-      MetadataField.height,
-      MetadataField.isAnimated,
-      MetadataField.filesize,
-    },);
+    final metadata = await _getMetadata(
+      path: path,
+      fields: {
+        MetadataField.width,
+        MetadataField.height,
+        MetadataField.isAnimated,
+        MetadataField.filesize,
+      },
+    );
 
     return ImageMetadata(
       width: metadata[MetadataField.width] as double,
@@ -666,28 +706,31 @@ class FFmpegTool {
 
   /// Extract video metadata
   /// * [path] original video
-  static Future<VideoMetadata> getVideoMetadata({ required String path }) async { 
+  static Future<VideoMetadata> getVideoMetadata({required String path}) async {
     // load video related metadata fields
-    final metadata = await _getMetadata(path: path, fields: {
-      MetadataField.duration,
-      MetadataField.hasAudio,
-      MetadataField.frameRate,
-      MetadataField.width,
-      MetadataField.height,
-      MetadataField.filesize,
-      MetadataField.hasAlpha,
-      MetadataField.isHDR,
-    },);
+    final metadata = await _getMetadata(
+      path: path,
+      fields: {
+        MetadataField.duration,
+        MetadataField.hasAudio,
+        MetadataField.frameRate,
+        MetadataField.width,
+        MetadataField.height,
+        MetadataField.filesize,
+        MetadataField.hasAlpha,
+        MetadataField.isHDR,
+      },
+    );
 
     return VideoMetadata(
       width: metadata[MetadataField.width] as double,
       height: metadata[MetadataField.height] as double,
-      duration: metadata[MetadataField.duration] as double, 
-      hasAudio: metadata[MetadataField.hasAudio] as bool, 
+      duration: metadata[MetadataField.duration] as double,
+      hasAudio: metadata[MetadataField.hasAudio] as bool,
       filesize: metadata[MetadataField.filesize] as int,
       frameRate: metadata[MetadataField.duration] as double,
-      hasAlpha: metadata[MetadataField.hasAlpha] as bool, 
-      isHDR: metadata[MetadataField.isHDR] as bool, 
+      hasAlpha: metadata[MetadataField.hasAlpha] as bool,
+      isHDR: metadata[MetadataField.isHDR] as bool,
     );
   }
 
@@ -695,7 +738,7 @@ class FFmpegTool {
   /// * [path] original video/audio/image path
   /// * [fields] set of fields to extract, by default all fields extracted
   static Future<Map<MetadataField, dynamic>> _getMetadata({
-    required String path, 
+    required String path,
     Set<MetadataField> fields = const {
       MetadataField.duration,
       MetadataField.hasAudio,
@@ -708,7 +751,7 @@ class FFmpegTool {
       MetadataField.isHDR,
       MetadataField.bitrate,
     },
-  }) async { 
+  }) async {
     final Map<MetadataField, dynamic> metadata = {};
     // retvieve media info
     final session = await FFprobeKit.getMediaInformation(path);
@@ -736,13 +779,13 @@ class FFmpegTool {
     }
 
     // audio channel presence, video frame rate, resolution, alpha and hdr presence
-    if (fields.contains(MetadataField.hasAudio) || 
-        fields.contains(MetadataField.frameRate) || 
-        fields.contains(MetadataField.width) || 
+    if (fields.contains(MetadataField.hasAudio) ||
+        fields.contains(MetadataField.frameRate) ||
+        fields.contains(MetadataField.width) ||
         fields.contains(MetadataField.height) ||
-        fields.contains(MetadataField.hasAlpha) || 
+        fields.contains(MetadataField.hasAlpha) ||
         fields.contains(MetadataField.isAnimated) ||
-        fields.contains(MetadataField.isHDR)) { 
+        fields.contains(MetadataField.isHDR)) {
       // alternativelly: ffprobe -loglevel error -i $path -show_streams -select_streams a
       bool hasAudio = false;
       bool? hasAlpha;
@@ -767,22 +810,26 @@ class FFmpegTool {
             if (hasAlpha == null) {
               final pixelFormat = stream.getStringProperty('pix_fmt');
               if (hasAlpha == null && pixelFormat != null) {
-                hasAlpha = pixelFormat.contains('a'); // yuva, rgba, bgra, gbra, ...
+                hasAlpha =
+                    pixelFormat.contains('a'); // yuva, rgba, bgra, gbra, ...
               }
             }
 
             // HDR
             if (isHDR == null) {
               // ffprobe -v error -select_streams v:0 -show_entries stream=color_transfer -of default=noprint_wrappers=1:nokey=1 video.mov
-              final colorTransferFunction = stream.getStringProperty('color_transfer');
+              final colorTransferFunction =
+                  stream.getStringProperty('color_transfer');
               if (colorTransferFunction != null) {
-                isHDR = colorTransferFunction == 'arib-std-b67' || colorTransferFunction == 'smpte2084'; // HLG or PQ
+                isHDR = colorTransferFunction == 'arib-std-b67' ||
+                    colorTransferFunction == 'smpte2084'; // HLG or PQ
               }
             }
 
             // frame rate
             if (fps == null) {
-              final String? framerateString = stream.getStringProperty('r_frame_rate');
+              final String? framerateString =
+                  stream.getStringProperty('r_frame_rate');
               final parts = framerateString?.split('/');
               if (parts != null) {
                 if (parts.length == 1) {
@@ -832,7 +879,9 @@ class FFmpegTool {
       final String? stringBitrate = information?.getBitrate();
       if (stringBitrate != null) {
         final intBitrate = int.tryParse(stringBitrate);
-        if (intBitrate != null) bitrate = intBitrate ~/ 1000; // from bytes to KB - bandwidth divided by 1000 (instead of 1024)
+        if (intBitrate != null)
+          bitrate = intBitrate ~/
+              1000; // from bytes to KB - bandwidth divided by 1000 (instead of 1024)
       }
       metadata[MetadataField.bitrate] = bitrate;
     }
@@ -840,7 +889,7 @@ class FFmpegTool {
     // file size in bytes
     if (fields.contains(MetadataField.filesize)) {
       int filesize = -1;
-      final sizeString = information?.getSize(); 
+      final sizeString = information?.getSize();
       if (sizeString != null) {
         final intSize = int.tryParse(sizeString);
         if (intSize != null) filesize = intSize;
@@ -853,7 +902,7 @@ class FFmpegTool {
     }
 
     // get duration, bitrate and file using ffprobe command
-    // ffprobe -i audio.mp3 -show_entries format=duration,size,bit_rate -v quiet -of csv="p=0" 
+    // ffprobe -i audio.mp3 -show_entries format=duration,size,bit_rate -v quiet -of csv="p=0"
     // sec,bytes,bytes - 6.804000,109485,128730
 
     return metadata;

@@ -2,19 +2,19 @@
 enum MetadataField {
   /// Video/audio duration, in seconds
   duration,
-  
+
   /// Alpha channel presence
   hasAudio,
-  
+
   /// Video FPS
   frameRate,
-  
+
   /// Video/image width
   width,
 
   /// Video/image height
   height,
-  
+
   /// File size
   filesize,
 

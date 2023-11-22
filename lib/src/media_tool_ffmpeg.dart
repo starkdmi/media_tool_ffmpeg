@@ -16,7 +16,7 @@ class MediaToolFFmpeg extends MediaToolPlatform {
   final Map<String, FFmpegSession> _sessions = {};
 
   /// Map event to store/remove ffmpeg session object
-  CompressionEvent _mapCompressionEvent( {
+  CompressionEvent _mapCompressionEvent({
     required String id,
     required CompressionEvent event,
   }) {
@@ -35,7 +35,7 @@ class MediaToolFFmpeg extends MediaToolPlatform {
       case CompressionFailedEvent:
         // remove from sessions
         _sessions.remove(id);
-        break; 
+        break;
     }
     return event;
   }
@@ -65,13 +65,17 @@ class MediaToolFFmpeg extends MediaToolPlatform {
     final size = videoSettings.size;
     final quality = videoSettings.quality?.toInt() ?? 28;
     // Convert bitrates to KB
-    final videoBitrate = videoSettings.bitrate == null ? null : videoSettings.bitrate! ~/ 1000;
-    final audioBitrate = audioSettings.bitrate == null ? null : audioSettings.bitrate! ~/ 1000;
+    final videoBitrate =
+        videoSettings.bitrate == null ? null : videoSettings.bitrate! ~/ 1000;
+    final audioBitrate =
+        audioSettings.bitrate == null ? null : audioSettings.bitrate! ~/ 1000;
 
     // Convert video codecs: h264, h265, prores -> prores, h264, h265, vp9, av1
-    final videoCodec = ffmpeg.VideoCodec.fromString(videoSettings.codec.toString());
+    final videoCodec =
+        ffmpeg.VideoCodec.fromString(videoSettings.codec.toString());
     // Convert audio codecs: aac, opus, flac -> aac, opus, flac, lpcm, alac, mp3
-    final audioCodec = ffmpeg.AudioCodec.fromString(audioSettings.codec.toString());
+    final audioCodec =
+        ffmpeg.AudioCodec.fromString(audioSettings.codec.toString());
 
     yield* ffmpeg.FFmpegTool.convertVideoFile(
       path: path,
@@ -80,7 +84,7 @@ class MediaToolFFmpeg extends MediaToolPlatform {
       deleteOrigin: deleteOrigin,
       videoCodec: videoCodec,
       size: size != null ? max(size.width, size.height) : null,
-      quality: quality, 
+      quality: quality,
       videoBitrate: videoBitrate,
       fps: videoSettings.frameRate,
       keepAlphaChannel: videoSettings.preserveAlphaChannel,
@@ -163,7 +167,7 @@ class MediaToolFFmpeg extends MediaToolPlatform {
     bool overwrite = false,
     bool deleteOrigin = false,
   }) async {
-     final size = settings.size;
+    final size = settings.size;
 
     // Convert an image
     final result = await ffmpeg.FFmpegTool.convertImageFile(
@@ -186,7 +190,7 @@ class MediaToolFFmpeg extends MediaToolPlatform {
     }
 
     var format = settings.format;
-    if (format == null) {      
+    if (format == null) {
       // Get file extension
       final ext = destination.split('.').last;
       // Convert extension to image format
@@ -206,7 +210,8 @@ class MediaToolFFmpeg extends MediaToolPlatform {
     }
 
     // Return image info
-    final metadata = await ffmpeg.FFmpegTool.getImageMetadata(path: destination);
+    final metadata =
+        await ffmpeg.FFmpegTool.getImageMetadata(path: destination);
     return ImageInfo(
       format: format ?? ImageFormat.jpeg,
       size: Size(metadata.width, metadata.height),
@@ -233,13 +238,14 @@ class MediaToolFFmpeg extends MediaToolPlatform {
     // Collect multiple futures
     final List<Future<void>> futures = [];
     for (final request in requests) {
-
       // TODO: Check if file exists, skip when overwrite is false
 
-      final future = ffmpeg.FFmpegTool.videoThumbnail( 
+      final future = ffmpeg.FFmpegTool.videoThumbnail(
         path: path,
         destination: request.path,
-        size: settings.size != null ? max(settings.size!.width, settings.size!.height).toInt() : null,
+        size: settings.size != null
+            ? max(settings.size!.width, settings.size!.height).toInt()
+            : null,
         position: request.time.toInt(),
         // overwrite: true,
       );
@@ -254,7 +260,11 @@ class MediaToolFFmpeg extends MediaToolPlatform {
     for (final request in requests) {
       // Check if file exists and then add to thumbnails list
       if (File(request.path).existsSync()) {
-        final thumbnail = VideoThumbnail(path: request.path, time: request.time, format: settings.format, size: settings.size);
+        final thumbnail = VideoThumbnail(
+            path: request.path,
+            time: request.time,
+            format: settings.format,
+            size: settings.size);
         thumbnails.add(thumbnail);
       }
     }

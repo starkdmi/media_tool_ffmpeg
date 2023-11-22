@@ -1,6 +1,6 @@
 # media_tool_ffmpeg
 
-FFmpeg based implementation of `media_tool` plugin with support for iOS, macOS and Android.
+FFmpeg based implementation of [media_tool](https://github.com/starkdmi/media_tool_flutter) plugin with support for iOS, macOS and Android.
 
 ## Usage
 

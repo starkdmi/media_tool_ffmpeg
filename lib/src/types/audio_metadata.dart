@@ -1,4 +1,4 @@
-/// Audio file metadata 
+/// Audio file metadata
 class AudioMetadata {
   /// Class initializer
   const AudioMetadata({

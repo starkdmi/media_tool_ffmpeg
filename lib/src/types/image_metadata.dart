@@ -1,4 +1,4 @@
-/// Image file metadata 
+/// Image file metadata
 class ImageMetadata {
   /// Class initializer
   const ImageMetadata({
@@ -9,10 +9,10 @@ class ImageMetadata {
   });
 
   /// Image width
-  final double width; 
+  final double width;
 
   /// Image height
-  final double height; 
+  final double height;
 
   /// Animated sequence presence
   final bool isAnimated;

@@ -23,22 +23,22 @@ enum AudioCodec {
   /// Codec identifier
   String get value {
     switch (this) {
-    case AudioCodec.aac:
-      return 'aac';
-    case AudioCodec.opus:
-      return 'libopus'; // or `opus` for ffmpeg built-in implementation
-    case AudioCodec.flac:
-      return 'flac';
-    case AudioCodec.lpcm:
-      return 'pcm_s16le';
-    case AudioCodec.alac:
-      if (Platform.isIOS || Platform.isMacOS) {
-        // Use AudioToolBox instead of ffmpeg built-in implementation on Apple devides
-        return 'alac_at';
-      }
-      return 'alac';
-    case AudioCodec.mp3:
-      return 'libmp3lame';
+      case AudioCodec.aac:
+        return 'aac';
+      case AudioCodec.opus:
+        return 'libopus'; // or `opus` for ffmpeg built-in implementation
+      case AudioCodec.flac:
+        return 'flac';
+      case AudioCodec.lpcm:
+        return 'pcm_s16le';
+      case AudioCodec.alac:
+        if (Platform.isIOS || Platform.isMacOS) {
+          // Use AudioToolBox instead of ffmpeg built-in implementation on Apple devides
+          return 'alac_at';
+        }
+        return 'alac';
+      case AudioCodec.mp3:
+        return 'libmp3lame';
     }
   }
 

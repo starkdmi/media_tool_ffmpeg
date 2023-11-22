@@ -1,10 +1,13 @@
 name: media_tool_ffmpeg
 description: FFmpeg based implementation of media_tool for iOS, macOS and Android
-version: 0.1.0+1
-publish_to: none
+homepage: https://github.com/starkdmi/media_tool_flutter
+repository: https://github.com/starkdmi/media_tool_ffmpeg
+version: 0.1.0
 
 environment:
   sdk: ">=2.18.0 <4.0.0"
+  # Flutter versions prior to 3.7 did not support the sharedDarwinSource option.
+  flutter: ">=3.7.0"
 
 flutter:
   plugin:
@@ -21,8 +24,7 @@ dependencies:
   ffmpeg_kit_flutter_full_gpl: ">=6.0.0 <7.0.0"
   flutter:
     sdk: flutter
-  media_tool_platform_interface:
-    path: ../media_tool_platform_interface
+  media_tool_platform_interface: ">=0.1.0 <1.0.0"
 
 dev_dependencies:
   flutter_test:

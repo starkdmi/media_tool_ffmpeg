@@ -1,11 +1,11 @@
-/// Video file metadata 
+/// Video file metadata
 class VideoMetadata {
   /// Class initializer
-  const VideoMetadata({ 
-    required this.width, 
-    required this.height, 
-    required this.duration, 
-    required this.hasAudio, 
+  const VideoMetadata({
+    required this.width,
+    required this.height,
+    required this.duration,
+    required this.hasAudio,
     required this.filesize,
     required this.frameRate,
     required this.hasAlpha,

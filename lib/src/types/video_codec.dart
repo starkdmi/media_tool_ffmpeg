@@ -20,16 +20,22 @@ enum VideoCodec {
   /// Codec identifier
   String get value {
     switch (this) {
-    case VideoCodec.prores:
-      return Platform.isIOS || Platform.isMacOS ? 'prores_videotoolbox' : 'prores';
-    case VideoCodec.h264:
-      return Platform.isIOS || Platform.isMacOS ? 'h264_videotoolbox' : 'libx264';
-    case VideoCodec.h265:
-      return Platform.isIOS || Platform.isMacOS ? 'hevc_videotoolbox' : 'libx265';
-    case VideoCodec.vp9:
-      return 'libvpx-vp9';
-    case VideoCodec.av1:
-      return 'libaom-av1';
+      case VideoCodec.prores:
+        return Platform.isIOS || Platform.isMacOS
+            ? 'prores_videotoolbox'
+            : 'prores';
+      case VideoCodec.h264:
+        return Platform.isIOS || Platform.isMacOS
+            ? 'h264_videotoolbox'
+            : 'libx264';
+      case VideoCodec.h265:
+        return Platform.isIOS || Platform.isMacOS
+            ? 'hevc_videotoolbox'
+            : 'libx265';
+      case VideoCodec.vp9:
+        return 'libvpx-vp9';
+      case VideoCodec.av1:
+        return 'libaom-av1';
     }
   }
 
