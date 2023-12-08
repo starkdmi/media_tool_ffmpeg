@@ -27,6 +27,6 @@ enum MetadataField {
   /// HDR data presence
   isHDR,
 
-  /// Video/audio file bitrate
+  /// Video/audio file bitrate, in KB
   bitrate;
 }

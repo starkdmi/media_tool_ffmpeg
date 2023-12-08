@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 import 'package:ffmpeg_kit_flutter_full_gpl/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_full_gpl/ffmpeg_session.dart';
 import 'package:ffmpeg_kit_flutter_full_gpl/ffprobe_kit.dart';
@@ -24,6 +25,16 @@ typedef ImageMetadata = types.ImageMetadata;
 
 /// Audio metadata type reference
 typedef AudioMetadata = types.AudioMetadata;
+
+/// Temporary info object
+class TempInfo implements MediaInfo {
+  /// Public initializer
+  const TempInfo({required this.url});
+
+  /// File path
+  @override
+  final String url;
+}
 
 /// Process photo, video and audio media, includes type converting, compressing, thumbnails and more
 class FFmpegTool {
@@ -69,8 +80,8 @@ class FFmpegTool {
     // check destination file existence when overwrite flag is set to `false`
     if (File(destination).existsSync() && !overwrite) {
       yield const CompressionFailedEvent(
-          error:
-              'Destination file already exists, use overwrite flag to force.');
+        error: 'Destination file already exists, use overwrite flag to force.',
+      );
       return;
     }
 
@@ -92,7 +103,9 @@ class FFmpegTool {
           }
 
           // push completed event
-          controller.add(CompressionCompletedEvent(url: destination));
+          // this one contains temp info, which will be replaced with real info in caller
+          controller
+              .add(CompressionCompletedEvent(info: TempInfo(url: destination)));
           await controller.close();
         } else if (ReturnCode.isCancel(returnCode)) {
           // on cancelled
@@ -190,15 +203,15 @@ class FFmpegTool {
   /// Convert, resize and crop images
   /// * [path] original image
   /// * [destination] proceed image, destination specify an output image format via extension
-  /// * [codec] allows manually specify the output codec
+  /// * [format] output image format
   /// * [size] widest side in pixels, if null original size returned
   /// * when [cropSquare] is `true` and [size] is not `null` image will be cropped to [size]x[size]
   /// * [quality] in range `[0, 100]`, `75` by default
   /// * set [lossless] to `true` for lossless compression
   /// * [skipAnimation] flag to skip animation data (to use primary frame only)
   /// * [fps] resulting animation frame rate, values smallers than 13 will cause an error for static images
-  /// * [preserveAlphaChannel] flag to preserve alpha channel in animated image sequence
-  /// * [backgroundColor] used when [preserveAlphaChannel] is set to `false` or alpha channel is not supported by output image format
+  // * [preserveAlphaChannel] flag to preserve alpha channel in animated image sequence
+  // * [backgroundColor] used when [preserveAlphaChannel] is set to `false` or alpha channel is not supported by output image format
   /// * [overwrite] flag to overwrite existing file at destination
   /// * [deleteOrigin] flag to delete original file after successful compression
   /// * [skipMetadata] skip image file metadata, default to `false`
@@ -279,7 +292,8 @@ class FFmpegTool {
     final m = '-map_metadata ${skipMetadata ? '-1' : '0'}';
 
     final session = await _execSync(
-        '${_base(overwrite: overwrite)} -i "$path" $m $c $l -quality $quality $filters "$destination"'); // -pix_fmt rgb24
+      '${_base(overwrite: overwrite)} -i "$path" $m $c $l -quality $quality $filters "$destination"',
+    ); // -pix_fmt rgb24
     final result = session != null;
 
     // Delete origin
@@ -407,7 +421,7 @@ class FFmpegTool {
   /// * [videoCodec] allows manually specify the output video codec
   /// * [size] widest side in pixels, if `null` original size returned, minimal size is 480
   /// * [quality] video quality (crf - constant rate factor)
-  /// * [videoBitrate] video bitrate in kilobits per second, default value is 200K
+  /// * [videoBitrate] video bitrate in kilobits per second
   /// * [fps] video frame rate
   /// * [keepAlphaChannel] preserve alpha channel in video, default to `true`
   /// * [skipMetadata] skip metadata, default to `false`
@@ -454,18 +468,37 @@ class FFmpegTool {
       fields: {
         MetadataField.duration,
         MetadataField.hasAlpha,
-        MetadataField.isHDR
+        MetadataField.isHDR,
+        MetadataField.bitrate,
+        MetadataField.frameRate,
+        if (!skipAudio) MetadataField.hasAudio,
+        if (size == null) MetadataField.width,
+        if (size == null) MetadataField.height,
       },
     );
+
     final duration = info[MetadataField.duration] as double;
+    final hasAlpha = info[MetadataField.hasAlpha] as bool;
+    final isHDR = info[MetadataField.isHDR] as bool;
+    final frameRate = info[MetadataField.frameRate] as int;
+    final nominalBitrate = info[MetadataField.bitrate] as int;
+    final bool hasAudio;
+    if (!skipAudio) {
+      hasAudio = info[MetadataField.hasAudio] as bool;
+    } else {
+      hasAudio = false;
+    }
+    Size? videoSize;
+    if (size == null) {
+      final width = info[MetadataField.width] as double;
+      final height = info[MetadataField.height] as double;
+      videoSize = Size(width, height);
+    }
 
     // Pixel format based on HDR and Alpha channel presence
     String? pixelFormat;
     var videoCodecName = videoCodec?.value;
     if (videoCodec != null) {
-      final hasAlpha = info[MetadataField.hasAlpha] as bool;
-      final isHDR = info[MetadataField.isHDR] as bool;
-
       if (isHDR) {
         // prores - supports HDR, yuv422p10le yuv444p10le yuva444p10le
         // prores_videotoolbox - supports HDR, p010le p210le p216le p410le p416le
@@ -589,11 +622,29 @@ class FFmpegTool {
     );
 
     await for (final event in stream) {
-      yield event;
+      if (event is CompressionCompletedEvent) {
+        final info = VideoInfo(
+          url: destination,
+          codec: null, // types.VideoCodec.fromString(videoCodec.value)
+          size: videoSize ??
+              Size.zero, // target size is uknown when `size` is not null
+          frameRate: fps ?? frameRate,
+          duration: duration,
+          bitrate: (videoBitrate ?? nominalBitrate) * 1000, // convert to bytes
+          hasAlpha: hasAlpha,
+          isHDR: isHDR,
+          hasAudio: hasAudio,
+        );
 
-      // Delete source file on success
-      if (deleteOrigin && event is CompressionCompletedEvent) {
-        await File(path).delete();
+        // Replace info object with real info
+        yield CompressionCompletedEvent(info: info);
+
+        // Delete source file on success
+        if (deleteOrigin) {
+          await File(path).delete();
+        }
+      } else {
+        yield event;
       }
     }
   }
@@ -719,6 +770,7 @@ class FFmpegTool {
         MetadataField.filesize,
         MetadataField.hasAlpha,
         MetadataField.isHDR,
+        MetadataField.bitrate,
       },
     );
 
@@ -729,6 +781,7 @@ class FFmpegTool {
       hasAudio: metadata[MetadataField.hasAudio] as bool,
       filesize: metadata[MetadataField.filesize] as int,
       frameRate: metadata[MetadataField.duration] as double,
+      bitrate: metadata[MetadataField.bitrate] as int,
       hasAlpha: metadata[MetadataField.hasAlpha] as bool,
       isHDR: metadata[MetadataField.isHDR] as bool,
     );
@@ -879,9 +932,10 @@ class FFmpegTool {
       final String? stringBitrate = information?.getBitrate();
       if (stringBitrate != null) {
         final intBitrate = int.tryParse(stringBitrate);
-        if (intBitrate != null)
+        if (intBitrate != null) {
           bitrate = intBitrate ~/
               1000; // from bytes to KB - bandwidth divided by 1000 (instead of 1024)
+        }
       }
       metadata[MetadataField.bitrate] = bitrate;
     }

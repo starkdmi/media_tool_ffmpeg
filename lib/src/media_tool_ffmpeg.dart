@@ -189,25 +189,7 @@ class MediaToolFFmpeg extends MediaToolPlatform {
       return null;
     }
 
-    var format = settings.format;
-    if (format == null) {
-      // Get file extension
-      final ext = destination.split('.').last;
-      // Convert extension to image format
-      format = ImageFormat.fromId(ext);
-
-      // Include some extension variations
-      if (format == null) {
-        switch (ext) {
-          case 'jpg':
-            format = ImageFormat.jpeg;
-            break;
-          case 'heic':
-            format = ImageFormat.heif;
-            break;
-        }
-      }
-    }
+    final format = settings.format ?? ImageFormat.fromPath(destination);
 
     // Return image info
     final metadata =
@@ -261,14 +243,62 @@ class MediaToolFFmpeg extends MediaToolPlatform {
       // Check if file exists and then add to thumbnails list
       if (File(request.path).existsSync()) {
         final thumbnail = VideoThumbnail(
-            path: request.path,
-            time: request.time,
-            format: settings.format,
-            size: settings.size);
+          path: request.path,
+          time: request.time,
+          format: settings.format,
+          size: settings.size,
+        );
         thumbnails.add(thumbnail);
       }
     }
 
     return thumbnails;
+  }
+
+  // Extract video info
+  /// [path] - Path location of input video file
+  @override
+  Future<VideoInfo?> videoInfo({required String path}) async {
+    final metadata = await ffmpeg.FFmpegTool.getVideoMetadata(path: path);
+
+    return VideoInfo(
+      url: path,
+      codec: null,
+      size: Size(metadata.width, metadata.height),
+      frameRate: metadata.frameRate.round(),
+      duration: metadata.duration,
+      bitrate: metadata.bitrate * 1000, // convert to bytes
+      hasAlpha: metadata.hasAlpha,
+      isHDR: metadata.isHDR,
+      hasAudio: metadata.hasAudio,
+    );
+  }
+
+  /// Extract audio info
+  /// [path] - Path location of input audio file
+  @override
+  Future<AudioInfo?> audioInfo({required String path}) async {
+    final metadata = await ffmpeg.FFmpegTool.getAudioMetadata(path: path);
+
+    return AudioInfo(
+      url: path,
+      codec: null,
+      duration: metadata.duration,
+      bitrate: metadata.bitrate * 1000, // convert to bytes
+    );
+  }
+
+  /// Extract image info
+  /// [path] - Path location of input image file
+  @override
+  Future<ImageInfo?> imageInfo({required String path}) async {
+    final metadata = await ffmpeg.FFmpegTool.getImageMetadata(path: path);
+    final format = ImageFormat.fromPath(path) ?? ImageFormat.jpeg;
+
+    return ImageInfo(
+      format: format,
+      size: Size(metadata.width, metadata.height),
+      isAnimated: metadata.isAnimated,
+    );
   }
 }

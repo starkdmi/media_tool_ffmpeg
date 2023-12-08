@@ -8,6 +8,7 @@ class VideoMetadata {
     required this.hasAudio,
     required this.filesize,
     required this.frameRate,
+    required this.bitrate,
     required this.hasAlpha,
     required this.isHDR,
   });
@@ -29,6 +30,9 @@ class VideoMetadata {
 
   /// Video framerate
   final double frameRate;
+
+  /// Video bitrate, in KB
+  final int bitrate;
 
   /// Alpha channel presence
   final bool hasAlpha;
