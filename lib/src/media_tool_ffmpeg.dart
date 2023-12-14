@@ -168,6 +168,7 @@ class MediaToolFFmpeg extends MediaToolPlatform {
     bool deleteOrigin = false,
   }) async {
     final size = settings.size;
+    final quality = (settings.quality ?? 0.75) * 100.0;
 
     // Convert an image
     final result = await ffmpeg.FFmpegTool.convertImageFile(
@@ -176,7 +177,7 @@ class MediaToolFFmpeg extends MediaToolPlatform {
       format: settings.format,
       size: size != null ? max(size.width, size.height) : null,
       cropSquare: settings.crop,
-      quality: settings.quality?.toInt() ?? 75,
+      quality: quality.toInt(),
       // lossless: settings.lossless ?? false,
       skipAnimation: settings.skipAnimation,
       fps: settings.frameRate,
