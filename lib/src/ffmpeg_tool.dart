@@ -420,7 +420,7 @@ class FFmpegTool {
   /// * [deleteOrigin] flag to delete original file after successful compression
   /// * [videoCodec] allows manually specify the output video codec
   /// * [size] widest side in pixels, if `null` original size returned, minimal size is 480
-  /// * [quality] video quality (crf - constant rate factor)
+  /// * [quality] video quality in [0.0, 1.0] range
   /// * [videoBitrate] video bitrate in kilobits per second
   /// * [fps] video frame rate
   /// * [keepAlphaChannel] preserve alpha channel in video, default to `true`
@@ -438,7 +438,7 @@ class FFmpegTool {
     bool deleteOrigin = false,
     VideoCodec? videoCodec,
     double? size,
-    int quality = 28,
+    double? quality,
     int? videoBitrate,
     int? fps,
     bool keepAlphaChannel = true,
@@ -587,9 +587,35 @@ class FFmpegTool {
     const movflag = '-movflags +faststart';
     // Preset
     const preset = '-preset fast'; // medium is default, slow, atd.
-    // Quality, values in range 23-30 provide good quality, lower the better. values 0-51 allowed, 28 default
-    // Lossless compression for H.265 may be achieved using `-x265-params lossless=1`
-    final crf = '-crf $quality';
+
+    // Quality
+    // TODO: Improve quality per codec and use presets and profiles
+    // TODO: Lossless compression for H.265 may be achieved using `-x265-params lossless=1`
+    int? factor;
+    if (quality != null) {
+      // H.264 (libx264, h264_videotoolbox) - crf [0, 51], default 23, for 10 bit the range is [0, 63] 
+      // H.265/HEVC (libx265) - crf [0, 51], default 28 which equals 23 for h.264
+      // Prores (prores, prores_videotoolbox) - bitrate only
+      // VP9 (libvpx-vp9), crf [0, 63]
+      // AV1 (libaom-av1), crf [0, 63], 23 equals 19 for h.264
+      double max;
+      switch (videoCodec) {
+        case VideoCodec.h264:
+        case VideoCodec.h265:
+        case VideoCodec.prores:
+        case null:
+          max = 51;
+          break;
+        case types.VideoCodec.vp9:
+        case types.VideoCodec.av1:
+          max = 63;
+          break;
+      }
+      // convert percentage value in range [0.0, 1.0] into CRF range
+      factor = (max - (quality * max)).round();
+    }
+    final crf = factor == null ? '' : '-crf $factor';
+
     // Video codec (optional)
     final vcodec = videoCodec == null ? '' : '-c:v $videoCodecName';
     // Video command combined

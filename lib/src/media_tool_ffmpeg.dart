@@ -63,7 +63,7 @@ class MediaToolFFmpeg extends MediaToolPlatform {
     bool deleteOrigin = false,
   }) async* {
     final size = videoSettings.size;
-    final quality = videoSettings.quality?.toInt() ?? 28;
+
     // Convert bitrates to KB
     final videoBitrate =
         videoSettings.bitrate == null ? null : videoSettings.bitrate! ~/ 1000;
@@ -84,7 +84,7 @@ class MediaToolFFmpeg extends MediaToolPlatform {
       deleteOrigin: deleteOrigin,
       videoCodec: videoCodec,
       size: size != null ? max(size.width, size.height) : null,
-      quality: quality,
+      quality: videoSettings.quality,
       videoBitrate: videoBitrate,
       fps: videoSettings.frameRate,
       keepAlphaChannel: videoSettings.preserveAlphaChannel,
