@@ -1,7 +1,8 @@
-import 'dart:io';
-
 /// Audio Codecs
 enum AudioCodec {
+  // MediaCodec supported formats:
+  // https://developer.android.com/guide/topics/media/platform/supported-formats
+
   /// Advanced Audio Coding
   aac,
 
@@ -9,16 +10,7 @@ enum AudioCodec {
   opus,
 
   /// Free Lossless Audio Codec
-  flac,
-
-  /// Linear PCM
-  lpcm,
-
-  /// Apple Lossless Audio Codec
-  alac,
-
-  /// MPEG audio layer 3
-  mp3;
+  flac;
 
   /// Codec identifier
   String get value {
@@ -26,19 +18,9 @@ enum AudioCodec {
       case AudioCodec.aac:
         return 'aac';
       case AudioCodec.opus:
-        return 'libopus'; // or `opus` for ffmpeg built-in implementation
+        return 'opus';
       case AudioCodec.flac:
         return 'flac';
-      case AudioCodec.lpcm:
-        return 'pcm_s16le';
-      case AudioCodec.alac:
-        if (Platform.isIOS || Platform.isMacOS) {
-          // Use AudioToolBox instead of ffmpeg built-in implementation on Apple devides
-          return 'alac_at';
-        }
-        return 'alac';
-      case AudioCodec.mp3:
-        return 'libmp3lame';
     }
   }
 
@@ -51,12 +33,6 @@ enum AudioCodec {
         return AudioCodec.opus;
       case 'flac':
         return AudioCodec.flac;
-      case 'lpcm':
-        return AudioCodec.lpcm;
-      case 'alac':
-        return AudioCodec.alac;
-      case 'mp3':
-        return AudioCodec.mp3;
       default:
         return null;
     }

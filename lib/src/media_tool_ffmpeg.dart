@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
-import 'package:ffmpeg_kit_flutter_full_gpl/ffmpeg_session.dart';
+import 'package:ffmpeg_kit_flutter_min/ffmpeg_session.dart';
 import 'package:media_tool_ffmpeg/src/ffmpeg_tool.dart' as ffmpeg;
 import 'package:media_tool_platform_interface/media_tool_platform_interface.dart';
 

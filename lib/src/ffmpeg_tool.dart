@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
-import 'package:ffmpeg_kit_flutter_full_gpl/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_full_gpl/ffmpeg_session.dart';
-import 'package:ffmpeg_kit_flutter_full_gpl/ffprobe_kit.dart';
-import 'package:ffmpeg_kit_flutter_full_gpl/return_code.dart';
+import 'package:ffmpeg_kit_flutter_min/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_min/ffmpeg_session.dart';
+import 'package:ffmpeg_kit_flutter_min/ffprobe_kit.dart';
+import 'package:ffmpeg_kit_flutter_min/return_code.dart';
 import 'package:media_tool_ffmpeg/src/types/types.dart' as types;
 import 'package:media_tool_platform_interface/media_tool_platform_interface.dart';
 
@@ -167,7 +167,7 @@ class FFmpegTool {
 
   /// flags used by every ffmpeg command
   static String _base({bool overwrite = false}) =>
-      "-hide_banner -loglevel error ${overwrite ? "-y" : ""}";
+      "-hide_banner -loglevel error -strict experimental ${overwrite ? "-y" : ""}";
 
   /// ffmpeg shortcut for settings optional lossless compression
   static String _lossless(bool lossless) => "-lossless ${lossless ? "1" : "0"}";
@@ -257,8 +257,9 @@ class FFmpegTool {
         if (isAnimated) codec = 'gif';
         break;
       case ImageFormat.webp:
-        if (isAnimated) codec = 'libwebp_anim';
-        break;
+        throw Exception('WEBP is not supported');
+        // if (isAnimated) codec = 'libwebp_anim';
+        // break;
       case ImageFormat.jpeg:
       case ImageFormat.tiff:
       case ImageFormat.bmp:
@@ -286,13 +287,13 @@ class FFmpegTool {
     final filters = _filter([sizeFilter, framerate]);
 
     // Lossless compression
-    final l = _lossless(lossless);
+    // final l = _lossless(lossless);
 
     // Metadata, -1 to skip all
     final m = '-map_metadata ${skipMetadata ? '-1' : '0'}';
 
     final session = await _execSync(
-      '${_base(overwrite: overwrite)} -i "$path" $m $c $l -quality $quality $filters "$destination"',
+      '${_base(overwrite: overwrite)} -i "$path" $m $c -quality $quality $filters "$destination"',
     ); // -pix_fmt rgb24
     final result = session != null;
 
@@ -455,11 +456,11 @@ class FFmpegTool {
     if (disableHardwareAcceleration) {
       hardwareAcceleration = '-hwaccel none';
     } else {
-      if (Platform.isIOS || Platform.isMacOS) {
-        hardwareAcceleration = '-hwaccel videotoolbox';
-      } else {
-        hardwareAcceleration = '-hwaccel auto';
-      }
+      // if (Platform.isIOS || Platform.isMacOS) {
+      //   hardwareAcceleration = '-hwaccel videotoolbox';
+      // } else {
+      hardwareAcceleration = '-hwaccel auto';
+      // }
     }
 
     // Get video metadata
@@ -509,20 +510,20 @@ class FFmpegTool {
 
         // TODO: color_primaries and color_transfer are still not set (!)
 
-        if (Platform.isIOS || Platform.isMacOS) {
-          if (videoCodec == VideoCodec.h264) {
-            // fallback to libx264 for HDR support
-            videoCodecName = 'libx264';
+        // if (Platform.isIOS || Platform.isMacOS) {
+        //   if (videoCodec == VideoCodec.h264) {
+        //     // fallback to libx264 for HDR support
+        //     videoCodecName = 'libx264';
 
-            pixelFormat = 'yuv422p10le -profile:v high';
-          } else if (videoCodec == VideoCodec.h265) {
-            pixelFormat = 'p010le -profile:v main10';
-          } else if (videoCodec == VideoCodec.prores) {
-            pixelFormat = 'p010le';
-          }
-        } else {
-          pixelFormat = 'yuv422p10le';
-        }
+        //     pixelFormat = 'yuv422p10le -profile:v high';
+        //   } else if (videoCodec == VideoCodec.h265) {
+        //     pixelFormat = 'p010le -profile:v main10';
+        //   } else if (videoCodec == VideoCodec.prores) {
+        //     pixelFormat = 'p010le';
+        //   }
+        // } else {
+        pixelFormat = 'yuv422p10le';
+        // }
       } else if (hasAlpha && keepAlphaChannel) {
         // prores - supports alpha - yuva444p10le
         // prores_videotoolbox - supports alpha - bgra
@@ -534,12 +535,12 @@ class FFmpegTool {
         // TODO: If source codec is VP9 -> add video decoder -c:v libvpx-vp9 to preserve alpha
 
         if (videoCodec == VideoCodec.prores) {
-          if (Platform.isIOS || Platform.isMacOS) {
-            pixelFormat = 'bgra';
-          } else {
-            pixelFormat = 'yuva444p10le';
-          }
-        } else if (videoCodec == VideoCodec.h265) {
+          // if (Platform.isIOS || Platform.isMacOS) {
+          //   pixelFormat = 'bgra';
+          // } else {
+          pixelFormat = 'yuva444p10le';
+          // }
+        } /*else if (videoCodec == VideoCodec.h265) {
           if (Platform.isIOS || Platform.isMacOS) {
             pixelFormat =
                 'bgra'; // TODO: FFmpeg will probably convert to `yuv420p`
@@ -548,7 +549,7 @@ class FFmpegTool {
           }
         } else if (videoCodec == VideoCodec.vp9) {
           pixelFormat = 'yuva420p';
-        } else {
+        }*/ else {
           // Use default format in next block
         }
       }
@@ -564,12 +565,12 @@ class FFmpegTool {
         // vp9 - yuv420p yuv422p yuv440p yuv444p
         // libaom-av1 - yuv420p yuv422p yuv444p
 
-        if (!(Platform.isIOS || Platform.isMacOS) &&
-            videoCodec == VideoCodec.prores) {
-          pixelFormat = 'yuv422p10le';
-        } else {
-          pixelFormat = 'yuv420p';
-        }
+        // if (!(Platform.isIOS || Platform.isMacOS) &&
+        //     videoCodec == VideoCodec.prores) {
+        //   pixelFormat = 'yuv422p10le';
+        // } else {
+        pixelFormat = 'yuv420p';
+        // }
       }
     }
     final pixel = videoCodec == null ? '' : '-pix_fmt ${pixelFormat!}';
@@ -586,7 +587,7 @@ class FFmpegTool {
     // Allow the video to begin playback while it is still being downloaded
     const movflag = '-movflags +faststart';
     // Preset
-    const preset = '-preset fast'; // medium is default, slow, atd.
+    // const preset = '-preset fast'; // medium is default, slow, atd.
 
     // Quality
     // TODO: Improve quality per codec and use presets and profiles
@@ -606,10 +607,10 @@ class FFmpegTool {
         case null:
           max = 51;
           break;
-        case types.VideoCodec.vp9:
-        case types.VideoCodec.av1:
-          max = 63;
-          break;
+        // case types.VideoCodec.vp9:
+        // case types.VideoCodec.av1:
+        //   max = 63;
+        //   break;
       }
       // convert percentage value in range [0.0, 1.0] into CRF range
       factor = (max - (quality * max)).round();
@@ -620,7 +621,7 @@ class FFmpegTool {
     final vcodec = videoCodec == null ? '' : '-c:v $videoCodecName';
     // Video command combined
     final video =
-        '$filter $vcodec $crf $bitrate $pixel $preset $movflag $hevcTag';
+        '$filter $vcodec $crf $bitrate $pixel $movflag $hevcTag';
 
     // Audio
     final String audio;
@@ -703,12 +704,6 @@ class FFmpegTool {
     // Metadata, -1 to skip all
     final m = '-map_metadata ${skipMetadata ? '-1' : '0'}';
 
-    // TODO: MP3-specific
-    // -ac 2 - stereo
-    // -f s16le - signed 16-bit little-endian PCM, standard format to streaming
-    // -profile:a aac_low - AAC-LC for streaming optimization (MP3 only)
-    // for streaming it's better to specify CBR using -b:a 128k instead of leaving possible VBR when bitrate is `null`
-
     // TODO: quality parameter via `-aq ...` (codec-specific)
 
     // -vn - disable video
@@ -717,9 +712,10 @@ class FFmpegTool {
     // Get audio duration for progress
     final info = await _getMetadata(
       path: path,
-      fields: {MetadataField.duration},
+      fields: {MetadataField.duration, MetadataField.bitrate},
     );
     final duration = info[MetadataField.duration] as double;
+    final nominalBitrate = info[MetadataField.bitrate] as int;
 
     final stream = _exec(
       command: command,
@@ -730,11 +726,23 @@ class FFmpegTool {
     );
 
     await for (final event in stream) {
-      yield event;
+      if (event is CompressionCompletedEvent) {
+        final info = AudioInfo(
+          url: destination,
+          codec: null, // types.AudioCodec.fromString(codec.value)
+          duration: duration,
+          bitrate: (bitrate ?? nominalBitrate) * 1000, // convert to bytes
+        );
 
-      // Delete source file on success
-      if (deleteOrigin && event is CompressionCompletedEvent) {
-        await File(path).delete();
+        // Replace info object with real info
+        yield CompressionCompletedEvent(info: info);
+
+        // Delete source file on success
+        if (deleteOrigin) {
+          await File(path).delete();
+        }
+      } else {
+        yield event;
       }
     }
   }
